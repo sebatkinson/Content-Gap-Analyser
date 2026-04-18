@@ -11,7 +11,6 @@ By combining live intent data from the **AlsoAsked API** with the analytical pow
 * **Smart Deduplication:** Automatically flattens and deduplicates complex question trees.
 * **One-Click Export:** Download a cleanly formatted CSV containing `Answered` and `Unanswered` questions for easy content briefs.
 
-**Created by [Atkinson Smith Digital](https://atkinsonsmithdigital.com)**
 ---
 
 ## 🛠️ Prerequisites
@@ -33,3 +32,5 @@ Download or clone this repository to your local machine.
 Open your terminal in the project folder and run:
 ```bash
 pip install streamlit requests beautifulsoup4 pandas watchdog
+```
+**Created by [Atkinson Smith Digital](https://atkinsonsmithdigital.com)**
