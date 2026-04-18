@@ -6,8 +6,8 @@ import pandas as pd
 from bs4 import BeautifulSoup
 
 # --- Configuration & Styling ---
-st.set_page_config(page_title="SEO Content Gap Analyzer", layout="wide")
-st.title("🔍 SEO Content Gap Analyzer")
+st.set_page_config(page_title="SEO Content Gap Analyser", layout="wide")
+st.title("🔍 SEO Content Gap Analyser")
 st.markdown("Compare a live webpage against AlsoAsked intent data to find missing content opportunities.")
 
 # --- Sidebar (Secure Settings) ---
@@ -21,6 +21,8 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("**Local LLM Status**")
     st.info("Using Ollama model: `gemma4:e4b` at `http://127.0.0.1:11434`")
+    st.markdown("---")
+    st.markdown("Created by [Atkinson Smith Digital](https://atkinsonsmithdigital.com)")
 
 # --- Core Functions (Translated from Node.js) ---
 
@@ -72,12 +74,21 @@ def get_also_asked_questions(api_key, term, region, fresh):
         return flattened
 
     results_array = data['queries'][0].get('results', [])
-    return flatten_results(results_array)
+    return list(set(flatten_results(results_array)))
 
 def fetch_page_text(url):
     try:
-        res = requests.get(url, timeout=10)
+        # 1. Define fake browser headers
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        
+        # 2. Pass the headers into the get request
+        res = requests.get(url, headers=headers, timeout=10)
         res.raise_for_status()
+        
         soup = BeautifulSoup(res.text, 'html.parser')
         
         # Remove unwanted elements
@@ -99,14 +110,14 @@ def analyze_with_gemma(questions, page_text):
         "messages": [
             {
                 "role": "system",
-                "content": "You are an SEO assistant. I will provide page text and a JSON array of questions. Return ONLY a JSON object with two keys: \"unanswered_questions\" (an array of strings representing questions NOT answered in the text) and \"answered_questions\" (an array of strings representing questions that ARE answered in the text)."
+                "content": "You are a strict SEO data evaluator. I will provide page text and a JSON array of questions. Evaluate each question against the text. Return ONLY a JSON object with a single key 'evaluations' containing an array of objects. Each object must have 'question' (string) and 'is_answered' (boolean)."
             },
             {
                 "role": "user",
                 "content": f"Questions: {json.dumps(questions)}\n\nPage Text: {page_text}"
             }
         ],
-        "temperature": 0.1
+        "temperature": 0.0 # Dropping to 0.0 makes it even more strictly logical
     }
 
     try:
@@ -117,7 +128,23 @@ def analyze_with_gemma(questions, page_text):
             
         data = res.json()
         content = data['choices'][0]['message']['content']
-        return json.loads(content)
+        result_json = json.loads(content)
+        
+        # Sort the LLM's new format back into our two clean lists for the UI
+        answered = []
+        unanswered = []
+        
+        for item in result_json.get('evaluations', []):
+            if item.get('is_answered') is True:
+                answered.append(item.get('question'))
+            else:
+                unanswered.append(item.get('question'))
+                
+        return {
+            "answered_questions": answered,
+            "unanswered_questions": unanswered
+        }
+        
     except Exception as e:
         st.error(f"Failed to parse Gemma response: {str(e)}")
         st.stop()
@@ -130,7 +157,7 @@ with col1:
 with col2:
     target_keyword = st.text_input("Enter Target Keyword / Topic", placeholder="e.g. Content Marketing")
 
-if st.button("🚀 Analyze Content Gap", use_container_width=True, type="primary"):
+if st.button("🚀 Analyse Content Gap", use_container_width=True, type="primary"):
     if not api_key:
         st.warning("Please enter your AlsoAsked API key in the sidebar first.")
         st.stop()
